@@ -1,0 +1,45 @@
+{
+  "name": "@patimweb/pi-cap-bestpractices",
+  "version": "1.0.0",
+  "description": "SAP CAP (Cloud Application Programming Model) best-practices skill for the pi coding agent — domain modeling, services & APIs, security, error handling, dependencies, and performance distilled from cap.cloud.sap/docs.",
+  "keywords": [
+    "pi-package",
+    "pi-skill",
+    "sap",
+    "cap",
+    "cds",
+    "sap-cap",
+    "cloud-application-programming",
+    "best-practices"
+  ],
+  "author": "Patrick Weppelmann",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Smotherer007/pi-cap-bestpractices.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Smotherer007/pi-cap-bestpractices/issues"
+  },
+  "scripts": {
+    "build": "echo 'No build step defined'",
+    "test": "node --test 'test/**/*.test.ts'",
+    "test:watch": "node --test --watch 'test/**/*.test.ts'"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@semantic-release/git": "^10.0.0",
+    "semantic-release": "^25.0.0"
+  },
+  "pi": {
+    "skills": [
+      "./skills"
+    ]
+  }
+}
