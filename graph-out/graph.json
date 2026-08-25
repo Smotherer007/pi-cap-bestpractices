@@ -1,0 +1,248 @@
+{
+  "nodes": [
+    {
+      "id": "package_file",
+      "label": "package.json",
+      "type": "file",
+      "sourceFile": "package.json",
+      "centrality": 0.387,
+      "community": 1
+    },
+    {
+      "id": "package_name",
+      "label": "name",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_version",
+      "label": "version",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_description",
+      "label": "description",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_keywords",
+      "label": "keywords",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_author",
+      "label": "author",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_license",
+      "label": "license",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_type",
+      "label": "type",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_engines",
+      "label": "engines",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_repository",
+      "label": "repository",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_bugs",
+      "label": "bugs",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_scripts",
+      "label": "scripts",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_publishConfig",
+      "label": "publishConfig",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_devDependencies",
+      "label": "devDependencies",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "package_pi",
+      "label": "pi",
+      "type": "field",
+      "sourceFile": "package.json",
+      "centrality": 0.032,
+      "community": 1
+    },
+    {
+      "id": "release.config_file",
+      "label": "release.config.cjs",
+      "type": "file",
+      "sourceFile": "release.config.cjs",
+      "centrality": 0.008,
+      "community": 15
+    },
+    {
+      "id": "test_skills.test_file",
+      "label": "test/skills.test.ts",
+      "type": "file",
+      "sourceFile": "test/skills.test.ts",
+      "centrality": 0.004,
+      "community": 17
+    },
+    {
+      "id": "test_skills.test_findSkillFiles",
+      "label": "findSkillFiles",
+      "type": "function",
+      "sourceFile": "test/skills.test.ts",
+      "sourceLocation": "L6",
+      "centrality": 0.007,
+      "community": 17
+    }
+  ],
+  "edges": [
+    {
+      "source": "package_file",
+      "target": "package_name",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_version",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_description",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_keywords",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_author",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_license",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_type",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_engines",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_repository",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_bugs",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_scripts",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_publishConfig",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_devDependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "package_file",
+      "target": "package_pi",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "test_skills.test_file",
+      "target": "test_skills.test_findSkillFiles",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "test_skills.test_findSkillFiles",
+      "target": "test_skills.test_findSkillFiles",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidenceScore": 0.85
+    }
+  ]
+}
