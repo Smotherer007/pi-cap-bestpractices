@@ -1,6 +1,6 @@
 ---
 name: sap-cap-best-practices
-description: Complete SAP CAP (Cloud Application Programming Model) best-practices reference from cap.cloud.sap/docs, covering both Node.js (@sap/cds) and Java (com.sap.cds) runtimes - project setup, domain modeling, services and event handlers, transactions, querying, security and authorization, error handling, logging, testing, i18n, TypeScript, databases, messaging, multitenancy, and performance. Use when working on any SAP CAP / CDS project, modeling CDS domains, defining services, writing handlers, or tuning security/performance.
+description: Complete SAP CAP (Cloud Application Programming Model) best-practices reference from cap.cloud.sap/docs and the SAP BTP Developer Guide, covering both Node.js (@sap/cds) and Java (com.sap.cds) runtimes - project setup, domain modeling, services and event handlers, transactions, querying, security, authorization, data privacy and audit logging, change tracking, error handling, logging, telemetry, testing, i18n, TypeScript, databases, messaging, multitenancy, production deployment, and performance. Use when working on any SAP CAP / CDS project, modeling CDS domains, defining services, writing handlers, or tuning security/performance.
 license: MIT
 ---
 
@@ -26,6 +26,7 @@ Trigger when working with SAP CAP / CDS (Node.js `@sap/cds` or Java `com.sap.cds
 - **Lock before deploying**: commit `package-lock.json` (Node.js) so deployments get exact tested versions.
 - **Minimize OSS packages**; run vulnerability checks for all direct + transitive deps.
 - **Upgrade to latest majors** on a 6–12 month cycle (critical fixes reach recent majors in a ~2-month grace window). Automate with renovate/dependabot.
+- **CDS plugins (`@cap-js/*`)** — reuse `@cap-js/audit-logging`, `@cap-js/change-tracking`, `@cap-js/telemetry`, `@cap-js/hana`, `@cap-js/sqlite` etc. They are `cds-plugin`s that auto-configure, keeping annotations/config minimal.
 
 ---
 
@@ -147,7 +148,18 @@ Core principle: **capture intent (what), not implementation (how)** — keeps mo
 - **Dedicated services per role** preferred over complex mixed restrictions; restrict on DB-entity level only in exceptional cases (inheritance/override unclear); **never strip auth filters** in custom handlers; deep `exists` paths can bottleneck → consider ACL tables.
 
 ### 7.3 Data protection & privacy
-- Data **privacy** = who has access + lawful handling (legal); data **protection** = availability/integrity/confidentiality (measures). Annotate personal data with `@PersonalData`, `@AuditLog`, retention (`@PersonalData.FieldSemantics`, DPP annotations) as applicable.
+- Data **privacy** = who has access + lawful handling (legal); data **protection** = availability/integrity/confidentiality (measures).
+- **Annotate personal data** with `@PersonalData` in a separate `srv/data-privacy.cds` file → automates audit logging, personal data management (PDM), and data retention management (DRM):
+  - `@PersonalData: { EntitySemantics: 'DataSubject' | 'DataSubjectDetails', DataSubjectRole: 'Customer' }`
+  - `@PersonalData.FieldSemantics: 'DataSubjectID'`, `@PersonalData.IsPotentiallyPersonal`, `@PersonalData.IsPotentiallySensitive`.
+
+### 7.4 Audit logging (`@cap-js/audit-logging`)
+- `npm add @cap-js/audit-logging` (a `cds-plugin` → auto-config). Audit categories: `audit.data-access` (read of sensitive personal data), `audit.data-modification`, `audit.security-events` (login/logout), `audit.configuration`.
+- Generic handlers emit `SensitiveDataRead` / `PersonalDataModified` based on the `@PersonalData` annotations.
+- Custom audit logs: `cds.on('served', ...)`, `const audit = await cds.connect.to('audit-log')`, then `audit.log('SecurityEvent', { data: {...} })` — wrap in `audit.tx(...)` when the default tx may already be finished.
+
+### 7.5 Change tracking (`@cap-js/change-tracking`)
+- `npm add @cap-js/change-tracking` (cds-plugin). Annotate with `@changelog`: entity-level `@changelog: { keys: [customer.name, createdAt] }`, field-level `@changelog`, association `@changelog: [customer.name]`. Provides a "Change History" UI with old/new values, user, timestamp, and change type.
 
 ---
 
@@ -166,6 +178,7 @@ Core principle: **capture intent (what), not implementation (how)** — keeps mo
 - **Mask sensitive headers** (`cds.log.mask_headers`, defaults authorization/cookie/cert/ssl); `sanitize_values` default `true`.
 - Request correlation: `x-correlation-id` → `x-request-id` → `x-vcap-request-id`; `traceparent` → `trace_id`.
 - **Java**: SLF4J/Logback (Spring Boot); use Spring Actuator + Micrometer for metrics/health; leverage SAP Application Logging / Cloud Logging services.
+- **Telemetry (`@cap-js/telemetry`)**: OOTB DB pool metrics; add custom metrics via OpenTelemetry (`metrics.getMeter()`, `meter.createUpDownCounter()`), attach to `after` handlers, and tag with `sap.tenancy.tenant_id`. Use SAP Cloud Logging for correlated logs/metrics/traces on CF and Kyma.
 
 ---
 
@@ -244,6 +257,16 @@ Run `cds lint`. Recommended rules encode these best practices:
 - **SQL**: `sql-null-comparison`, `sql-cast-suggestion`.
 - **Data**: `valid-csv-header`, `assoc2many-ambiguous-key`.
 - **Environment**: `latest-cds-version`.
+
+---
+
+## 18. Production Preparation & Deployment
+
+- Profiles: **development** (local), **hybrid** (cloud bindings via `cds bind`), **production** (deploy). Deployments use `production` automatically; inspect with `cds env requires -4 production`.
+- **Node.js**: `cds add hana`, `cds add xsuaa` (adds `@sap/xssec` + `[production] auth: xsuaa` + `xs-security.json`), `cds add workzone-standard`/`portal`/`html5-repo`, `cds add mta`/`kyma`. Validate with `cds build --production`.
+- **Java**: `cds add hana` (adds `cds-feature-hana` + `spring-boot-starter-actuator` for `/actuator/health/liveness|readiness`), `cds add xsuaa`, `cds add workzone`. Validate with `mvn clean package`.
+- `@requires` annotations → XSUAA scopes + role templates in `xs-security.json` (one scope + role template per CDS role).
+- **Draft**: always enable `@odata.draft.enabled` when a Fiori app needs user data input.
 
 ---
 
