@@ -1,183 +1,264 @@
 ---
 name: sap-cap-best-practices
-description: Complete SAP CAP (Cloud Application Programming Model) best-practices reference from cap.cloud.sap/docs - domain modeling, services and event handlers, transactions, security and authorization, error handling, logging, testing, i18n, TypeScript, dependencies, databases, and performance. Use when working on any SAP CAP / CDS project (Node.js @sap/cds or Java com.sap.cds), modeling CDS domains, defining services, writing handlers, or tuning security/performance.
+description: Complete SAP CAP (Cloud Application Programming Model) best-practices reference from cap.cloud.sap/docs, covering both Node.js (@sap/cds) and Java (com.sap.cds) runtimes - project setup, domain modeling, services and event handlers, transactions, querying, security and authorization, error handling, logging, testing, i18n, TypeScript, databases, messaging, multitenancy, and performance. Use when working on any SAP CAP / CDS project, modeling CDS domains, defining services, writing handlers, or tuning security/performance.
 license: MIT
 ---
 
 # SAP CAP Best Practices
 
-Complete reference of official best practices distilled from https://cap.cloud.sap/docs/ (CAP = SAP Cloud Application Programming Model). Use as a checklist while reviewing or writing CAP code, and as the source of truth for conventions and anti-patterns.
-
-Primary sources: `node.js/best-practices`, `guides/domain`, `guides/services/providing-services`, `guides/services/custom-code`, `node.js/cds-tx`, `node.js/events`, `node.js/cds-log`, `node.js/cds-test`, `guides/security/authentication`, `guides/security/authorization`, `guides/databases/performance`, `guides/databases`, `guides/uis/i18n`, `node.js/typescript`, `tools/cds-lint`.
+Complete reference of official best practices distilled from https://cap.cloud.sap/docs/ (CAP = SAP Cloud Application Programming Model), covering **both runtimes** — Node.js (`@sap/cds`) and Java (`com.sap.cds`). Use as a checklist while reviewing or writing CAP code, and as the source of truth for conventions and anti-patterns.
 
 ## When to Use
 
 Trigger when working with SAP CAP / CDS (Node.js `@sap/cds` or Java `com.sap.cds`), or when the user mentions: CAP, CDS, `.cds` files, `@sap/cds`, `@sap/cds/common`, `cds watch`, `cds deploy`, domain modeling, entities, associations, compositions, aspects, `@restrict`, `@requires`, Fiori/SAPUI5, OData, SAP BTP, Cloud Foundry, Kyma, HANA, XSUAA, IAS, multitenancy. German keywords: "SAP CAP", "CDS Modell", "Domänenmodell", "Best Practices SAP".
 
-## 1. Dependency Management
+---
 
-- **Caret ranges** (`^7.2.0`) for `@sap/*` and OSS packages — latest fixes + npm dedupe. Caret is npm's default.
-- **Publishing for reuse**: keep open ranges, never pin exact versions, never `npm shrinkwrap`. `npm update` + test (in CI) before publishing.
-- **Lock before deploying**: commit `package-lock.json` so deployments get the exact tested versions.
+## 1. Project Setup & Dependencies
+
+### 1.1 Node.js vs Java bootstrap
+- **Node.js**: `cds init <project> --add sample`; serve with `cds watch`. `@sap/cds` + `@sap/cds-dk` (CLI).
+- **Java**: `cds init <project> --java` or the Maven archetype (`cds-services-archetype`); build/run with `mvn spring-boot:run`. Requires Java 21+ (Java 25 recommended, e.g. SapMachine) and Maven 3.9.14+. Modular: add features on demand via `cds-starter-cloudfoundry` / `cds-starter-k8s`.
+
+### 1.2 Dependency rules (both runtimes)
+- **Caret ranges** (`^7.2.0`) for `@sap/*` and OSS packages → latest fixes + npm dedupe.
+- **Publishing for reuse**: keep open ranges, never pin exact versions, never `npm shrinkwrap`; `npm update` + test (in CI) before publishing.
+- **Lock before deploying**: commit `package-lock.json` (Node.js) so deployments get exact tested versions.
 - **Minimize OSS packages**; run vulnerability checks for all direct + transitive deps.
-- **Upgrade to latest majors** on a 6–12 month cycle (critical fixes reach recent majors in a ~2-month grace window).
-- Automate with renovate/dependabot.
+- **Upgrade to latest majors** on a 6–12 month cycle (critical fixes reach recent majors in a ~2-month grace window). Automate with renovate/dependabot.
 
-## 2. Security
+---
 
-- CAP's Node.js runtime does **not** auto-mount express middlewares — add `helmet` via `cds.on('bootstrap', app => app.use(helmet()))`.
-- **CSP**: via helmet, customize `helmet.contentSecurityPolicy.getDefaultDirectives()`.
-- **CSRF**: prefer App Router handling (default for non-GET/HEAD). Never cache the CSRF token (`Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate`). At horizontal scale always handle CSRF at App Router (avoid per-VM token mismatch).
-- **CORS**: configure in exactly ONE place (App Router preferred OR CAP server, never both). Allow-list origins in production.
-- **Availability**: provide an anonymous `/health` ping (no auth). From `@sap/cds ^7.8` `/health` returns `{ status: 'UP' }` out of the box. Auth-protect sophisticated checks (e.g. DB availability) to avoid DoS.
+## 2. Domain Modeling
 
-## 3. Authentication
+Core principle: **capture intent (what), not implementation (how)** — keeps models concise and lets CAP provide optimized generic providers.
 
-- **Start new projects with IAS** (Identity Authentication Service); XSUAA for legacy BTP landscapes. IAS + XSUAA can run hybrid during migration.
-- **Mock users** (basic auth) for local dev/unit tests; deactivated in production by default. Define them in the development profile only.
-- Integration tests in production profile **must verify unauthenticated users cannot access any endpoint**.
-- Never share service keys or tokens. Delete service keys after CLI testing.
-- CAP applications: at most one binding to an IAS/XSUAA instance.
+### 2.1 General style
+- **KISS**; keep models concise/comprehensible; don't over-abstract.
+- **Prefer flat models** over deeply nested structured types.
+- **Separation of concerns** via aspects: keep the core domain model clean; put authorization, constraints, and UI/Fiori annotations in separate files (`extend` / `annotate`).
+- **Naming**: capitalize entity/type names (`Authors`), lowercase elements (`name`); plural entities, singular types; concise names (no repeated context: `Authors.name` not `Authors.authorName`); `ID` for technical PKs.
+- **Use `@sap/cds/common`**: `cuid`, `managed`, `temporal`, `Country`, `Currency`, `Language`. Custom types only with a reuse ratio.
 
-## 4. Authorization (declarative access control)
+### 2.2 Primary keys
+- Single-field, technical, immutable; canonic `cuid` (`key ID : UUID`); **prefer UUIDs** (DB sequences only for high volume).
+- **Never interpret/validate UUIDs** — unique opaque values. No case/hyphen/RFC-4122 assumptions, no string↔binary conversions (breaks ABAP `GUID_32` interop).
 
-- **By default CDS services have NO access control** — applications *must* implement proper authorization; CAP cannot infer it from the domain model.
-- **Internal services**: annotate `@protocol: 'none'` so they aren't exposed to external clients.
-- **Static**: `@readonly`, `@insertonly`, or OData `@Capabilities` (Insert/Update/DeleteRestrictions).
-- **`@requires`** (service/entity/action): which (pseudo-)role is needed, e.g. `'authenticated-user'`, `'system-user'`.
-- **`@restrict`** (entity, fine-grained): privilege `{ grant, to, where }` — grant = events (`READ`, `WRITE`, `*`, action names); to = roles (default `any`); where = instance filter.
-- **Combined restrictions**: all hierarchy levels (service → entity → action) must pass (logical AND). Multiple privileges within one `@restrict` pass if **any** is met.
-- **Instance-based**: `where: CreatedBy = $user`, `where: $user.country = countryCode`, `exists members[userId = $user and role = 'Editor']`.
-- **`$user.<attr>` is a list**; empty/undefined list ⇒ predicate false ⇒ fully restricted. Use `valueRequired:true` (default) — unrestricted XSUAA attributes (`valueRequired:false`) are a footgun (adding a second restricted role can *shrink* access unexpectedly).
-- **Draft mode**: creator can edit/delete/activate their draft; no need to model draft events.
-- **Auto-exposed entities** (`@cds.autoexpose`, code lists) are `@readonly`; implicitly auto-exposed entities are only reachable via navigation.
-- **Best practice — dedicated services per role**: avoid one service mixing many roles with complex `where`/`exists`; prefer separate services (`AdminService`, `UsersService`).
-- **Restrict on DB-entity level only in exceptional cases** (inheritance/override gets unclear). Service-entity restrictions inherit from the DB entity; explicit service-level `@restrict` *replaces* inherited ones.
-- **Never strip auth filters** when modifying `SELECT`/queries in custom handlers.
-- Deep `exists` paths can bottleneck — consider ACL tables for performance.
+### 2.3 Associations & compositions
+- **Prefer managed `:1` associations** (FKs/on-conditions auto-generated). To-many always need an `on`. Many-to-many via link entity or composition-of-aspects.
+- **Compositions** = contained-in (deep insert/update, cascaded delete, auto-exposed). Use for document structures.
+- Deep WRITE (compositions) only works OOTB if the on-condition uses only `=` comparisons joined by `AND` with refs/`$self`.
 
-## 5. Services & APIs
+### 2.4 Localized & managed data
+- **Localized data**: `localized` qualifier (`title : localized String`), not hand-rolled `.texts`.
+- **Managed data**: `@cds.on.insert`/`@cds.on.update` (`$now`, `$user`) or aspect `managed` — auto-filled, write-protected. Pseudo-vars: `$now` (UTC), `$user`, `$user.<attr>`, `$uuid`.
 
+---
+
+## 3. Services & APIs
+
+### 3.1 Service design
 - **One service per use case** (services are cheap). Anti-pattern: one service exposing all entities 1:1.
-- **Services as facades/projections** on the domain model; expose only what the use case needs (`@readonly`, `@insertonly`, `excluding {...}`, denormalized views).
+- **Services as facades/projections** on the domain model (`@readonly`, `@insertonly`, `excluding {...}`, denormalized views).
 - Use `@cds.autoexpose` for code-list/value-list entities.
 
-## 6. Event Handlers (custom logic)
+### 3.2 Served out-of-the-box (generic providers)
+- CRUD, deep read/write (compositions vs associations handled differently: compositions deeply create/update, associations fill FKs to existing targets), auto UUID keys, `$search`, pagination (implicit 1000-record page limit), implicit sorting by PK, optimistic (ETags) + pessimistic (locks) concurrency.
+- **Pagination**: configure `cds.query.limit.default/max` or `@cds.query.limit`. Reliable pagination (OData V4 only) via `cds.query.limit.reliablePaging` (Node.js) / `cds.query.limit.reliablePaging.enabled` (Java).
+- **Concurrency**: ETag via `@odata.etag` on `modifiedAt`; pessimistic via `SELECT ... .forUpdate()`/`.forShareLock()` (Node.js) or `Select.lock()` (Java). Locking not on projections/views, not on SQLite.
 
-- **Always prefer declarative techniques first** (status flows, constraints, `@mandatory`) over imperative handlers.
-- Hooks: `on` (replaces default, interceptor stack), `before`/`after` (listeners, run in parallel; a throw vetoes).
-- **Prefer local `req`** over `cds.context` for context properties (`cds.context` goes through `AsyncLocalStorage.getStore()` — minor overhead).
-- `req.timestamp` — constant `Date` for the whole request (use for managed dates, not `new Date()`).
-- `req.subject` — pointer to target instances, usable in single-row READ/UPDATE/DELETE and bound actions (`SELECT.from(req.subject)`).
-- `req.reply(result)` / `return result` from `on` handlers. `req.reject({status, code, message, target})` is the preferred way to raise errors. `req.error()` collects multiple errors. `req.warn/info/notify()` for non-error messages (validate user input to avoid injection).
-- **Use `@mandatory` / `@assert.*` instead of hand-writing input checks.**
-- `req.on('succeeded'/'failed'/'done')` run **outside** the transaction — use `cds.spawn()` or `cds.tx()` for DB work there. Use `req.before('commit')` to veto.
+### 3.3 Declarative constraints (input validation)
+- Use `@mandatory`, `@assert: (case when ... end)`, `@assert.format`, `@assert.range` (incl. open intervals `(0)` and `_` infinity), `@assert.target`, `@readonly` instead of hand-written checks.
+- `@assert` constraints are **pushed down to the database** (what-not-how).
+- `@assert.format` uses ECMA 262 regex (Node.js) vs `java.util.regex.Pattern` (Java).
+- `@assert.target` validates input (CREATE/UPDATE only, not referential integrity — use `@assert.integrity` for that); no cross-service checks.
+- **Invariant constraints** on base entities must not reference other elements (views may not expose them).
 
-## 7. Transactions
+### 3.4 Status-transition flows
+- Declarative via `@flow.status`, `@from`, `@to` (and `$flow.previous`); built-in in Node.js, needs `cds-feature-flow` dependency in Java. Combine with `@readonly` + `default`. Generic handlers validate entry states (409 on mismatch) and set target states automatically.
+
+### 3.5 Custom actions & functions
+- **Actions** modify data, **functions** retrieve. Bound actions receive the entity's PK as implicit first argument. Implement via `srv.on('name', ...)`.
+- **Node.js**: `this.on('sum', ({data:{x,y}}) => x+y)`; bound: `this.on('getStock','Foo', ({params:[id]}) => ...)`. Method-style subclasses supported.
+- **Java**: `@On(event="...")` handlers; return the function's return type directly.
+
+---
+
+## 4. Event Handlers — Node.js vs Java
+
+### 4.1 Registration & phases (Node.js)
+- `srv.on/before/after(event, entity?, handler)`; `on` = fulfill (interceptor stack with `next()`), `before`/`after` = listeners (run in parallel; a throw vetoes).
+- Implement in sibling `.js` file next to `.cds`, or `lib/`/`handlers/` subfolder, or via `@impl`/`impl` config. Subclass `cds.ApplicationService`, register in `init()`, call `super.init()`.
+- **Best practices**: use **named function** handlers (not arrow) so `this` is the transactional derivate; prefer `before`/`after` for custom logic (`.on` only for actions/functions); use `req.error()` to collect multiple input errors; `srv.prepend()` to register before existing handlers.
+
+### 4.2 Registration & phases (Java)
+- Annotate methods with `@Before`/`@On`/`@After` on `@Component` classes implementing `EventHandler`; `@ServiceName` (class) and `event`/`entity`/`service` attributes on annotations.
+- Handlers within a phase are **never concurrent** and have **no guaranteed order** unless `@HandlerOrder(EARLY/LATE)` is used (generic handlers run before EARLY and after LATE). `@On` can call `context.proceed()` to delegate to the next handler.
+- Use event-specific typed `EventContext` (`CdsReadEventContext`, `getCqn()`, `setResult()`), typed data args (`List<Books>`), and generated constants (`Books_.CDS_NAME`, `CqnService.EVENT_READ`).
+- `@Before` completes the phase early if it sets a result/`setCompleted()`; `@On` first handler to set a result wins; `@After` can replace the result.
+
+### 4.3 Common context/reply (Node.js)
+- Prefer local `req` over `cds.context` (avoids `AsyncLocalStorage.getStore()` overhead). `req.timestamp` (constant `Date`), `req.subject` (single-row READ/UPDATE/DELETE + bound actions), `req.data`, `req.params`, `req.query`.
+- Reply with `req.reply(result)` / `return result`; reject with `req.reject({status, code, message, target})`; collect with `req.error()`; non-error `req.warn/info/notify()` (validate user input).
+- `req.on('succeeded'/'failed'/'done')` run **outside** the transaction → use `cds.spawn()`/`cds.tx()` for DB work; use `req.before('commit')` to veto.
+
+---
+
+## 5. Transactions
 
 - **You don't have to care** — CAP auto-manages begin/commit/rollback, connection pooling, principal propagation, tenant isolation. Within handlers you're always in a transaction.
-- **Nested transactions** auto-commit/rollback with the root, but are **not a distributed atomic transaction** (one nested commit can succeed while another fails).
-- **Manual transactions**: `cds.tx(fn)` starts a root tx and auto-commits/rolls back. Only needed outside managed (handler) environments.
-- `cds.spawn({user, tenant, every/after}, fn)` for background jobs (detached continuation, own tx per run). **Await all async ops inside the callback.**
-- `tx.commit()` / `tx.rollback()` release the physical connection — the `tx` can't be reused afterwards.
+- **Nested transactions** auto-commit/rollback with the root but are **not distributed-atomic** (one nested commit can succeed while another fails).
+- **Manual (Node.js)**: `cds.tx(fn)` starts a root tx and auto-commits/rolls back (only needed outside managed handlers). `tx.commit()`/`tx.rollback()` release the connection — the `tx` can't be reused.
+- **Background jobs (Node.js)**: `cds.spawn({user, tenant, every/after}, fn)` — detached continuation, own tx per run; **await all async ops inside**.
 - SQLite: parallel transactions deadlock.
+- **Java**: transactions handled via Spring (annotations/`TransactionTemplate`); context via `RequestContext` (`getUserInfo()`, tenant).
 
-## 8. Data Types & Timestamps
+---
 
-- **`Decimal` and `Int64` are returned as strings** (HANA, PostgreSQL, SQLite). Do arithmetic in the DB (`UPDATE(Books).set('stock = stock + 1')`), never in JavaScript (silent precision loss past `Number.MAX_SAFE_INTEGER`).
-- Use `req.timestamp` for managed dates; CAP converts `Date` to the correct DB format.
+## 6. Querying (CQN / cds.ql)
 
-## 9. Domain Modeling
+### 6.1 Node.js (`cds.ql`)
+- `SELECT/INSERT/UPSERT/UPDATE/DELETE` fluent API, tagged template literals, or `srv.run(query)`. Prefer reflected definitions (`const { Books } = cds.entities`) to avoid repeating namespaces.
+- **Avoid SQL injection**: never string-concatenate user input into queries; never wrap tagged template strings in parentheses; values are always bound as parameters.
+- Prefer `INSERT.into(Books).entries(SELECT.from(Products))` (native `INSERT INTO SELECT`, copies within the DB) over reading then inserting.
+- `SELECT.one`, `.forUpdate()`, `.forShareLock()`, `.stream()`, `.foreach()`, `.pipeline()` (streaming only on `cds.DatabaseService`).
 
-- **Capture intent (what), not implementation (how).**
-- **KISS**; prefer **flat models** over deeply nested structured types.
-- **Naming**: capitalize entity/type names, lowercase elements; plural entities, singular types; concise (no repeated context); `ID` for technical PKs.
-- **Primary keys**: single-field, technical, immutable; canonic `cuid` (`key ID : UUID`); **prefer UUIDs** (DB sequences only for high volume). **Never interpret/validate UUIDs** (no case/hyphen/RFC-4122 assumptions, no string↔binary conversions).
-- Use `@sap/cds/common`: `cuid`, `managed`, `temporal`, `Country`, `Currency`, `Language`. Custom types only with a reuse ratio.
-- **Prefer managed `:1` associations**; to-many always need an `on`; many-to-many via link entity or composition-of-aspects.
-- **Compositions** = contained-in (deep insert/update, cascaded delete, auto-exposed).
-- **Localized data**: use `localized` qualifier, not hand-rolled `.texts`.
-- **Managed data**: `@cds.on.insert`/`@cds.on.update` (`$now`, `$user`) or aspect `managed` — auto-filled, write-protected.
-- **Separation of concerns** via aspects: keep auth and Fiori/UI annotations out of the core model.
+### 6.2 Java (CQN query API)
+- Uniform query API via `Select`, `Insert`, `Update`, `Delete` builders; generated `Books_` query-builder interfaces for type-safe queries; `Result` for results.
 
-## 10. CDS Modeling Performance
+---
 
-- **Avoid UNION** (re-model polymorphism via single entity + `type` enum + compositions, or de-normalized entity with aspects).
-- **Avoid JOIN** in static views — use projections + associations + `$expand` (join only on demand).
-- **Sort/filter before joining** (apply on the inner/child side first).
-- **Calculated fields** (concat, formatting, algebra, `case`, dynamic) can't use DB indexes. Prefer: (1) UI computation, (2) pre-calculate **on write** (`= ... stored`), (3) on read, (4) event handler last resort. Disable sort/filter via `@Capabilities.SortRestrictions.NonSortableProperties`.
-- **Compositions vs associations**: compositions for shared lifecycle/clear hierarchy/transactional togetherness; associations for changing relationships/independent lifecycles. For huge documents (thousands of children) decouple with associations.
-- **Legacy migration**: convert string booleans, emulated decimals, positional strings, multi-column patterns, UNION/CASE; drop unnecessary VDM `C_`/`I_` abstraction views; keep service entities single-purpose (use actions/functions for complex logic).
+## 7. Security & Data Privacy
 
-## 11. Runtime Performance
+### 7.1 Authentication
+- **Start new projects with IAS** (Identity Authentication Service); XSUAA for legacy BTP. IAS + XSUAA can run hybrid.
+- **Node.js**: mock users (basic auth) for dev/test, deactivated in production. `cds.on('bootstrap', app => app.use(helmet()))` for helmet/CSP; never cache CSRF tokens; configure CORS in ONE place (App Router preferred).
+- **Java**: Spring Security auto-config activated only when BOTH deps (`cds-starter-cloudfoundry`/`cds-starter-k8s`) AND an XSUAA/IAS binding exist. `cds.security.authentication.mode` = `never`/`model-relaxed`(default)/`model-strict`/`always`. Mock users: `authenticated`, `system`, `privileged` (plus custom via `cds.security.mock.users`). Override via `@Order(1)` `SecurityFilterChain` or fully disable with `cds.security.authentication.authConfig.enabled: false`.
+- At most one binding to an IAS/XSUAA instance; use plan `broker` for technical reuse APIs; never share service keys/tokens.
+- Integration tests in production profile **must verify unauthenticated access is denied**.
 
-- **Measure before optimizing**: define load profile, resources, KPI; take a 1-user baseline; isolate components one at a time.
-- Findings (SAP test setup): CAP REST ≈ Express; **OData library significantly slower** → prefer **REST** for critical requests; SAP BTP routers and **HANA** limit throughput; token validation ~1.2–1.6×; **locale-specific sorting up to 16× slower** (disable when throughput matters); **scale-out is the main lever** (≈linear), Node.js **clustering** only ~20% + OOM risk (not recommended).
-- Actions: REST over OData for critical paths, disable locale-specific sorting, scale out.
+### 7.2 Authorization (declarative access control)
+- **By default CDS services have NO access control** — applications *must* implement authorization.
+- `@protocol: 'none'` for internal services; `@readonly`/`@insertonly`/`@Capabilities` for static; `@requires` (service/entity/action) for role checks; `@restrict` (entity) for fine-grained `{ grant, to, where }`.
+- Combined restrictions: all hierarchy levels must pass (AND); multiple privileges pass if any matches.
+- Instance-based: `where: CreatedBy = $user`, `$user.country = countryCode` (`$user.<attr>` is a list; empty = fully restricted), `exists members[userId = $user and role = 'Editor']`.
+- **Avoid unrestricted XSUAA attributes** (`valueRequired:false`) — adding a second restricted role can unexpectedly shrink access.
+- Draft mode: creator can edit/delete/activate their draft. Auto-exposed entities are `@readonly`; implicitly auto-exposed reachable only via navigation.
+- **Dedicated services per role** preferred over complex mixed restrictions; restrict on DB-entity level only in exceptional cases (inheritance/override unclear); **never strip auth filters** in custom handlers; deep `exists` paths can bottleneck → consider ACL tables.
 
-## 12. Logging
+### 7.3 Data protection & privacy
+- Data **privacy** = who has access + lawful handling (legal); data **protection** = availability/integrity/confidentiality (measures). Annotate personal data with `@PersonalData`, `@AuditLog`, retention (`@PersonalData.FieldSemantics`, DPP annotations) as applicable.
 
-- Use `cds.log(id)` — cached/shared logger, `console`-like API. **Leave formatting to the log functions** (`LOG.debug('Expected', arg, 'but got', value)` not pre-formatted strings). Check `LOG._debug` etc. for expensive messages.
-- Levels: `error` = unexpected, `warn` = expected/off-happy-path, `info` = brief progress, `debug` = detail, `trace` = exhaustive.
-- Plain formatter in dev; **JSON formatter in production** (default). Integrate winston via `cds.log.Logger = cds.log.winstonLogger()`.
+---
+
+## 8. Error Handling
+
+- Distinguish **programming errors** (bugs — fix) from **operational errors** (runtime — handle).
+- **Let it crash** for programming errors: fail loudly, log, don't over-`try/catch`, don't program defensively. Never keep running after an unexpected error (multitenant info-disclosure risk).
+- **Don't hide error origins**: augment and re-throw the same object. Only wrap in a new error to strip sensitive details.
+- Use `@mandatory`/`@assert` instead of hand-written checks. Error responses: `5xx` are sanitized to generic messages in production (`err.$sanitize = false` to opt out, with care).
+
+---
+
+## 9. Logging & Observability
+
+- **Node.js**: `cds.log(id)` (cached/shared, `console`-like). Leave formatting to log functions; check `LOG._debug` etc. for expensive messages. Levels: error=unexpected, warn=expected, info=brief, debug=detail, trace=exhaustive. Plain formatter in dev, **JSON formatter in production**. `cds.log.Logger = cds.log.winstonLogger()` for winston.
 - **Mask sensitive headers** (`cds.log.mask_headers`, defaults authorization/cookie/cert/ssl); `sanitize_values` default `true`.
 - Request correlation: `x-correlation-id` → `x-request-id` → `x-vcap-request-id`; `traceparent` → `trace_id`.
+- **Java**: SLF4J/Logback (Spring Boot); use Spring Actuator + Micrometer for metrics/health; leverage SAP Application Logging / Cloud Logging services.
 
-## 13. Testing
+---
 
-- `npm add -D @cap-js/cds-test`; use `cds.test(project)`, `GET`/`POST` shorthand, `defaults.auth`.
-- **Call `cds.test()` first** — never touch `cds.env`/`cds.Service`/submodules before it. Enable `CDS_TEST_ENV_CHECK`.
-- **Run `cds.test` once per test file.** Use `cds.test.in(folder)` instead of `process.chdir()`.
-- **KISS — avoid excessive mocking**: "the more you mock, the less you test the real thing."
-- **Minimal assertions**: assert stable error *codes* (`READONLY_ENTITY`), not messages. Don't snapshot whole responses — use `containSubset`. Check response *data* first, status code last (don't obscure errors).
-- **Runner-agnostic**: stick to common `describe/test/expect` APIs; prefer Vitest over Jest for ESM/Chai.
+## 10. Testing
 
-## 14. Internationalization (i18n)
+### 10.1 Node.js (`@cap-js/cds-test`)
+- `cds.test(project)` + `GET`/`POST` shorthand + `defaults.auth`. **Call `cds.test()` first** (never touch `cds.env`/`cds.Service` before it); enable `CDS_TEST_ENV_CHECK`. Run `cds.test` once per file; use `cds.test.in(folder)` instead of `process.chdir()`.
+- **KISS** — avoid excessive mocking ("the more you mock, the less you test"). Minimal assertions: assert stable error **codes**, not messages; use `containSubset`, not snapshots; check data first, status code last. Runner-agnostic APIs; prefer Vitest over Jest (ESM/Chai).
 
-- Externalize literals to text bundles and reference `'{i18n>key}'` in annotations. Put bundles in `_i18n/` (`.properties` or CSV).
-- Merging order: default fallback (`i18n.properties`) → default language (`i18n_en.properties`) → requested locale.
-- Locale resolution: `sap-locale` param → `Accept-Language`. **Normalized locales use underscores** (`en_GB`, `i18n_en_GB.properties`); preserve only the whitelisted locales (`zh_CN`, `en_GB`, `fr_CA`, `pt_PT`, …).
-- Ensure translations exist for preserved locales, else fallback is `en`.
+### 10.2 Java
+- Spring Boot test support (`@SpringBootTest`, `@AutoConfigureMockMvc`, `@WithMockUser`). Test authorization with mock users; verify 401 for unauthenticated. Use the Maven `INTEGRATION_TEST` module for integration tests.
 
-## 15. TypeScript
+---
 
-- `cds add typescript`; `cds watch` auto-detects `tsconfig.json` and uses `tsx`. Prefer `tsx` over `ts-node` (no type checks = faster).
+## 11. Internationalization (i18n)
+
+- Externalize literals to `_i18n/*.properties` (or CSV) and reference `'{i18n>key}'`. Merging order: default fallback → default language → requested locale.
+- Locale from `sap-locale` param → `Accept-Language`. **Normalized locales use underscores** (`en_GB`, `i18n_en_GB.properties`); preserve only whitelisted locales (`zh_CN`, `en_GB`, `fr_CA`, `pt_PT`, …). Ensure translations exist for preserved locales (fallback `en`).
+
+---
+
+## 12. TypeScript (Node.js)
+
+- `cds add typescript`; `cds watch` auto-detects `tsconfig.json` and uses `tsx`. Prefer `tsx` over `ts-node` (faster, no type checks).
 - **Always precompile TS for production** (`cds build` → run from `gen/srv`); `cds-tsx`/`tsx` are dev-only.
-- **Import types from the `@sap/cds` facade only** — never from `@sap/cds/apis/...`. Add `@cap-js/cds-types` for IntelliSense.
-- Use `cds-typer` (`#cds-models/...`) for model-derived types.
+- **Import types from the `@sap/cds` facade only** — never `@sap/cds/apis/...`. Add `@cap-js/cds-types`; use `cds-typer` (`#cds-models/...`) for model-derived types.
 
-## 16. Databases & Schema Evolution
+---
 
-- CAP handles CDS→DDL compilation, deployment, and CSV initial-data loading automatically (`cds watch`/`cds deploy`).
-- Dev = SQLite in-memory (or H2 for Java); prod = SAP HANA default (PostgreSQL in edge cases). Swap DBs without model/impl changes (inner-loop).
-- Use the appropriate **schema evolution** strategy for development vs production.
+## 13. Databases & Schema Evolution
+
+- CAP handles CDS→DDL compilation, deployment, and CSV initial-data loading automatically (`cds watch`/`cds deploy`/`mvn`).
+- Dev = SQLite in-memory (Node.js) / H2 (Java); prod = SAP HANA default (PostgreSQL in edge cases). Swap DBs without model/impl changes (inner-loop). Use the appropriate **schema evolution** strategy for dev vs prod.
+
+---
+
+## 14. Messaging & Events
+
+- **Intrinsic eventing**: all services emit/consume events. `srv.emit(event, data)` (Node.js) / `service.emit(context)` (Java). Event handlers are **listeners** (all run concurrently) vs request `on` handlers are **interceptors**.
+- **Always `await srv.emit()`** (not awaiting → invalid transaction state/deadlocks).
+- Declare events in CDS (`event AverageRatings.Changed : AverageRatings;`). In-process messaging is free; cross-process via `cds.MessagingService` + message brokers (CloudEvents).
+
+---
+
+## 15. Multitenancy & Extensibility
+
+- Enable with `cds add multitenancy` (+ `npm install`/`mvn install`). Uses `@sap/cds-mtxs` sidecar (`mtx/sidecar`).
+- **Node.js**: adds `@sap/cds-mtxs`, `with-mtx-sidecar` profile; sidecar serves `ModelProviderService`, `DeploymentService`, `SaasProvisioningService`, `ExtensibilityService`. Local test: `cds watch mtx/sidecar` + `cds watch --with-mtx` + `cds subscribe t1 --to http://localhost:4005`.
+- **Java**: adds `cds-feature-mt`, `with-mtx` profile, `cds.multi-tenancy.sidecar.url`; sidecar runs with `java` profile.
+- Upgrade tenants with `cds-mtx upgrade '*'` (Node.js) / Java schema update guide. Unique `t0` metadata container. Tenants strictly isolated (separate DB/HDI container per tenant).
+
+---
+
+## 16. Performance
+
+### 16.1 CDS modeling performance
+- **Avoid UNION** (normalize via single entity + `type` enum + compositions, or de-normalize with aspects). **Avoid JOIN** in static views (use associations + `$expand`). **Sort/filter before joining**.
+- **Calculated fields** can't use DB indexes → prefer (1) UI, (2) pre-calc on write (`= ... stored`), (3) on read, (4) event handler last resort. Disable sort/filter via `@Capabilities.SortRestrictions.NonSortableProperties`.
+- **Compositions vs associations**; decouple huge documents (thousands of children) with associations.
+- **Legacy migration**: convert string booleans, emulated decimals, positional strings, multi-column patterns, UNION/CASE; drop VDM `C_`/`I_` abstraction views.
+
+### 16.2 Runtime performance
+- **Measure before optimizing**: load profile, resources, KPI; 1-user baseline; isolate one component at a time.
+- Findings: CAP REST ≈ Express; **OData library significantly slower** → REST for critical requests; SAP BTP routers + HANA limit throughput; token validation ~1.2–1.6×; **locale-specific sorting up to 16× slower** (disable when throughput matters); **scale-out is the main lever** (≈linear), Node.js clustering only ~20% + OOM risk (not recommended).
+- Java: enable HANA `HEX` optimization mode for best persistence throughput.
+
+---
 
 ## 17. cds-lint checklist (`@sap/eslint-plugin-cds`)
 
-Run `cds lint`. Recommended rules encode these best practices — keep them green:
-- **Authorization**: `auth-no-empty-restrictions`, `auth-restrict-grant-service`, `auth-use-requires`, `auth-valid-restrict-*` (grant/to/where/keys).
+Run `cds lint`. Recommended rules encode these best practices:
+- **Authorization**: `auth-no-empty-restrictions`, `auth-restrict-grant-service`, `auth-use-requires`, `auth-valid-restrict-*`.
 - **Naming/modeling**: `start-entities-uppercase`, `start-elements-lowercase`, `no-dollar-prefixed-names`, `no-db-keywords`, `no-java-keywords`.
 - **Structure**: `no-cross-service-import`, `no-deep-sap-cds-import`, `no-join-on-draft`, `extension-restrictions`, `case-sensitive-well-known-events`.
-- **JavaScript handlers**: `no-shared-handler-variable`, `use-cql-select-template-strings`.
-- **SQL correctness**: `sql-null-comparison`, `sql-cast-suggestion`.
+- **JS handlers**: `no-shared-handler-variable`, `use-cql-select-template-strings`.
+- **SQL**: `sql-null-comparison`, `sql-cast-suggestion`.
 - **Data**: `valid-csv-header`, `assoc2many-ambiguous-key`.
 - **Environment**: `latest-cds-version`.
+
+---
 
 ## Pitfalls (anti-patterns to avoid)
 
 - Pinning exact deps / publishing `npm-shrinkwrap.json` for reuse packages.
-- Configuring CORS in both App Router and CAP server.
-- Catching/swallowing unexpected errors; keeping the app running after an unexpected error; hiding error origins.
-- `Decimal`/`Int64` arithmetic in JavaScript.
-- Validating/interpreting UUIDs.
-- Deeply nested structured types; excessive custom types with no reuse; over-abstracting the model.
-- One service exposing all entities 1:1; mixing many roles in one service.
-- Hand-writing input checks instead of `@mandatory`/`@assert`/constraints.
+- Configuring CORS in both App Router and CAP server; caching CSRF tokens.
+- Catching/swallowing unexpected errors; hiding error origins; keeping the app running after an unexpected error.
+- `Decimal`/`Int64` arithmetic in JavaScript; string-concatenating user input into queries.
+- Validating/interpreting UUIDs; deeply nested structured types; excessive custom types.
+- One service exposing all entities 1:1; mixing many roles in one service; hand-writing input checks instead of `@mandatory`/`@assert`.
 - Static views with UNION/JOIN; sort/filter after join; live calculated fields in `where`.
 - Stripping authorization filters when modifying queries in handlers.
-- DB work in `req.on('succeeded'/'failed')` without `cds.tx`/`cds.spawn`.
+- DB work in `req.on('succeeded'/'failed')` without `cds.tx`/`cds.spawn`; not `await`-ing `srv.emit()`.
 - `console.log` instead of `cds.log`; pre-formatted log strings.
-- Testing error messages instead of codes; snapshot-testing whole responses; checking status codes first.
-- `process.chdir()` in tests; touching `cds.env` before `cds.test()`; heavy mocking.
+- Testing error messages instead of codes; snapshot-testing whole responses; checking status codes first; `process.chdir()` in tests; touching `cds.env` before `cds.test()`; heavy mocking.
 - Unrestricted XSUAA attributes (`valueRequired:false`).
 - Clustering instead of scale-out for throughput.
