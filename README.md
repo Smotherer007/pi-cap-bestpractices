@@ -1,62 +1,68 @@
 # pi-cap-bestpractices
 
-SAP CAP (Cloud Application Programming Model) best-practices **skill** for the [pi coding agent](https://github.com/earendil-works/pi).
+SAP CAP (Cloud Application Programming Model) **skills** for the [pi coding agent](https://github.com/earendil-works/pi).
 
-A single self-contained skill that carries the official CAP best practices from [cap.cloud.sap/docs](https://cap.cloud.sap/docs/) — domain modeling, services & APIs, security, error handling, dependency management, and performance — so the agent applies them automatically when working on SAP CAP / CDS projects.
+This package ships the official, SAP-maintained [**capire/skills**](https://github.com/capire/skills) repository as a git submodule, making the curated CAP skills available to pi. The previous hand-written skill has been replaced by the upstream skills, which follow the same open [Agent Skills](https://agentskills.io/specification) standard that pi implements.
+
+## Included skills
+
+| Skill | Purpose |
+|-------|---------|
+| `cap-developer` | Build/extend CAP apps (Node.js & Java): project setup, CDS modeling, declarative annotations, custom handlers |
+| `cap-add-remote-service` | Consume external services (Calesi pattern): consumption views, delegation & federation handlers |
+| `cap-upgrade` | Upgrade a CAP project to a newer CDS version (`cds upgrade` + manual major-jump workflows) |
+| `cap-trivia` | Interactive CAP trivia quiz (requires the CAP MCP server) |
 
 ## Installation
 
 ```bash
-# Install from npm (once published)
+# From npm (once published)
 pi install npm:@patimweb/pi-cap-bestpractices
 
-# Install from local path during development
+# From local path during development
 pi install /path/to/pi-cap-bestpractices
 ```
 
 ## Usage
 
-The skill is loaded on demand. Trigger it by working on CAP/CDS code, or explicitly:
+The skills are loaded on demand. Trigger them by working on CAP/CDS code, or explicitly:
 
 ```bash
-/skill:sap-cap-best-practices
+/skill:cap-developer
+/skill:cap-add-remote-service
+/skill:cap-upgrade
 ```
 
-## Contents
+## Keeping the skills up to date
 
-The skill covers nine areas, each distilled into actionable rules with do/don't guidance:
+The skills are tracked as a submodule pinned to a specific upstream commit. To pull the latest SAP skills:
 
-| Area | Key topics |
-|------|------------|
-| Dependency Management | caret ranges, locking, OSS minimization, major upgrades |
-| Security | helmet/CSP, CSRF, CORS, express hardening |
-| Availability Checks | anonymous `/health` ping |
-| Error Handling | let it crash, don't hide error origins |
-| Data Types | `Decimal`/`Int64` as strings, `req.timestamp` |
-| Domain Modeling | intent over implementation, naming, UUID keys, associations/compositions, aspects |
-| Services & APIs | use-case-oriented services, facades/projections |
-| CDS Modeling Performance | avoid UNION/JOIN, calculated fields, legacy migration |
-| Runtime Performance | measure first, REST over OData, scale-out |
+```bash
+git submodule update --remote skills
+# review, then commit the updated submodule pointer
+```
+
+When cloning this repo fresh (including in CI), initialize the submodule:
+
+```bash
+git clone --recurse-submodules git@github.com:Smotherer007/pi-cap-bestpractices.git
+# or, after a normal clone:
+git submodule update --init --recursive
+```
 
 ## Development
 
 ```bash
-npm test          # validate SKILL.md frontmatter
-npm test:watch    # run tests on change
+git submodule update --init --recursive   # first time
+npm test                                  # validate every SKILL.md frontmatter
+npm test:watch                            # run tests on change
 ```
 
 ## Publishing as a pi Package
 
-To publish this skill to the [pi package catalog](https://pi.dev/packages):
-
-1. Ensure `package.json` has `"keywords": ["pi-package"]`
-2. Ensure `package.json` has a `"pi"` section declaring `"skills"` (or the conventional `skills/` directory)
-3. Optionally add `"image"` or `"video"` preview URLs to the `"pi"` manifest
-4. Publish to npm: `npm publish`
-5. Users install with: `pi install npm:@patimweb/pi-cap-bestpractices`
-
-The package catalog auto-discovers packages with the `pi-package` keyword from npm. Releases are automated via [semantic-release](https://semantic-release.gitbook.io/) on pushes to `main` (and pre-releases on `next`).
+The package declares `"pi.skills": ["./skills/skills"]` (the upstream repo keeps its skills under a nested `skills/` directory). CI initializes the submodule (`submodules: recursive`) before tests and release, so the skill content ships inside the npm tarball. Releases are automated via [semantic-release](https://semantic-release.gitbook.io/) on pushes to `main` (and pre-releases on `next`).
 
 ## License
 
-MIT
+- **This package** (packaging, workflows, config): MIT — Copyright Patrick Weppelmann.
+- **The bundled skills** (`skills/`): Apache-2.0 — Copyright SAP SE or an SAP affiliate company and capire/skills contributors. See `skills/LICENSE` and `skills/LICENSES/`.

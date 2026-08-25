@@ -1,7 +1,7 @@
 {
   "name": "@patimweb/pi-cap-bestpractices",
   "version": "1.0.0",
-  "description": "SAP CAP (Cloud Application Programming Model) best-practices skill for the pi coding agent — domain modeling, services & APIs, security, error handling, dependencies, and performance distilled from cap.cloud.sap/docs.",
+  "description": "SAP CAP (Cloud Application Programming Model) skills for the pi coding agent — ships the official SAP capire/skills (cap-developer, cap-add-remote-service, cap-trivia, cap-upgrade) as a git submodule.",
   "keywords": [
     "pi-package",
     "pi-skill",
@@ -10,7 +10,8 @@
     "cds",
     "sap-cap",
     "cloud-application-programming",
-    "best-practices"
+    "best-practices",
+    "capire"
   ],
   "author": "Patrick Weppelmann",
   "license": "MIT",
@@ -39,7 +40,7 @@
   },
   "pi": {
     "skills": [
-      "./skills"
+      "./skills/skills"
     ],
     "image": "https://raw.githubusercontent.com/Smotherer007/pi-cap-bestpractices/main/screenshot.png"
   }

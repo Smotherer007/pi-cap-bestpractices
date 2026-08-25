@@ -1,4 +1,12 @@
 .github/
 .gitignore
+.gitmodules
 test/
 graph-out/
+
+# Upstream capire/skills submodule: ship only the skills + license attribution
+skills/.claude-plugin/
+skills/CONTRIBUTING.md
+skills/README.md
+skills/REUSE.toml
+**/evals/
