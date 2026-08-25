@@ -1,6 +1,6 @@
 {
   "name": "@patimweb/pi-cap-bestpractices",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "SAP CAP (Cloud Application Programming Model) skills for the pi coding agent — ships the official SAP capire/skills (cap-developer, cap-add-remote-service, cap-trivia, cap-upgrade) as a git submodule.",
   "keywords": [
     "pi-package",
